@@ -1,0 +1,17 @@
+<head>
+	<title> Product </title>
+</head>
+
+<body>
+	<div class='panel-body'>
+		<form action="" method="post" enctype = "multipart/form-data" >
+			{% csrf_token %}
+			{% for field in form %}
+	            <span> {{ field.errors }} </span>
+	            <label>{{ field.label_tag }}</label>
+	            {{ field }} <br>
+            {% endfor %}
+			<button type='submit'>Submit!</button>
+		</form>
+	</div>
+</body>
