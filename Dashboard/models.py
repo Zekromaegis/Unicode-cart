@@ -35,7 +35,7 @@ class Product(models.Model):
         return reverse('Dashboard:a')
 
     def __str__(self):
-        return self.name + ' - ' + str(self.price)
+        return self.name + ' - ' + str(self.price) + ' - ' + str(self.pk)
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete = models.CASCADE)

@@ -1,4 +1,6 @@
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth.forms import AuthenticationForm
+from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group
 from django.shortcuts import render, redirect
@@ -20,7 +22,7 @@ def is_customer(user):
     return user.groups.filter(name='customer').exists() or user.is_superuser
 
 def is_company(user):
-    return user.groups.filter(name='company').exists() or user.is_superuser 
+    return user.groups.filter(name='company').exists() or user.is_superuser
 
 #####################################################
 
@@ -45,8 +47,7 @@ class customer_register(generic.View):
             customer.user = user
             customer.save()
 
-            group = Group(name = 'customer')
-            group.save()
+            group, created = Group.objects.get_or_create(name = 'customer')
             user.groups.add(group)
 
             user = authenticate(username=username, password=password)
@@ -77,8 +78,7 @@ class company_register(generic.View):
             company.user = user
             company.save()
 
-            group = Group(name = 'company')
-            group.save()
+            group, created = Group.objects.get_or_create(name = 'company')
             user.groups.add(group)
 
             user = authenticate(username=username, password=password)
@@ -88,6 +88,30 @@ class company_register(generic.View):
 
         return render(request, self.template_name, {'form' : form})
 
+class user_login(generic.View):
+    form_class = AuthenticationForm
+    template_name = r'Dashboard/login.html'
+
+    def get(self,request):
+        form = self.form_class(None)
+        return render(request, self.template_name, {'form' : form})
+
+    def post(self,request):
+        form = self.form_class(data = request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect('Dashboard:a')
+
+        return render(request, self.template_name, {'form' : form})
+
+def user_logout(request):
+    logout(request)
+    return redirect('Dashboard:login')
 ######################################################
 
 decorators = [
@@ -101,20 +125,26 @@ class ProductCreate(CreateView):
     fields = ['name','image','desc','price']
 
     def form_valid(self, form):
-        self.object.company = self.request.user.company
+        form.instance.company = self.request.user.company
         return super(ProductCreate, self).form_valid(form)
 
-@method_decorator(login_required, name='dispatch')
-@user_passes_test(is_company)   
+@method_decorator(decorators, name='dispatch') 
 class ProductUpdate(UpdateView):
     model = Product
     fields = ['name','image','desc','price']
 
-@method_decorator(login_required, name='dispatch')
-@user_passes_test(is_company)    
+    def get_queryset(self):
+        base_qs = super().get_queryset()
+        return base_qs.filter(company=self.request.user.company)
+
+@method_decorator(decorators, name='dispatch')     
 class ProductDelete(DeleteView):
     model = Product
     success_url = reverse_lazy('Dashboard:a')
+
+    def get_queryset(self):
+        base_qs = super().get_queryset()
+        return base_qs.filter(company=self.request.user.company)
 
 ######################################################
 def a(request):
